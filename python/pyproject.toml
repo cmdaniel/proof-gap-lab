@@ -5,7 +5,6 @@ description = "A small experiment on where formal verification stops and tests m
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-license-files = ["LICENSE"]
 dependencies = [
     "z3-solver>=4.13",
     "hypothesis>=6.100",

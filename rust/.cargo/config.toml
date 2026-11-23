@@ -1,0 +1,3 @@
+[env]
+# Same Z3 as the Python side (z3-solver 5.4.1), downloaded prebuilt by z3-sys.
+Z3_SYS_Z3_VERSION = "5.4.1"

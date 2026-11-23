@@ -9,8 +9,11 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  python:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -19,3 +22,46 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q
       - run: uv run python -m proofgap.experiment
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-results
+          path: python/results.json
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    env:
+      # z3-sys downloads the pinned Z3 release; a token avoids API rate limits.
+      READ_ONLY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo clippy --release --all-targets --locked -- -D warnings
+      - run: cargo test --release --locked
+      - run: cargo run --release --locked --bin experiment
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-results
+          path: rust/results.json
+
+  compare:
+    needs: [python, rust]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-results
+          path: python
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-results
+          path: rust
+      - run: python3 scripts/compare.py --check

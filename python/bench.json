@@ -1,0 +1,54 @@
+{
+  "language": "python",
+  "python": "3.13.14",
+  "machine": "Darwin arm64",
+  "results": {
+    "exec_compiled": {
+      "calls": 1000000,
+      "seconds": 0.44598012510687113,
+      "ns_per_call": 445.9801251068711,
+      "checksum": "3e348fe7fba5dad5"
+    },
+    "exec_legacy": {
+      "calls": 1000000,
+      "seconds": 0.5995782921090722,
+      "ns_per_call": 599.5782921090722,
+      "checksum": "3e348fe7fba5dad5"
+    },
+    "oracle": {
+      "calls": 2000,
+      "seconds": 0.1964205838739872,
+      "us_per_call": 98.2102919369936,
+      "checksum": "eabbed5f140c177a",
+      "matches_compiled": true
+    },
+    "prove_spec": {
+      "promises": 5,
+      "ms": 3.6897913087159395,
+      "all_proved": true
+    },
+    "prove_high_value_drift": {
+      "ms": 3.868978936225176,
+      "refuted": [
+        "no_overdraft"
+      ]
+    },
+    "boundary_witnesses": {
+      "ms": 7.297375239431858,
+      "count": 14
+    },
+    "property_1000": {
+      "ms": 205.3413330577314
+    },
+    "property_100k_high_value_drift": {
+      "seconds": 23.094727749936283,
+      "status": "missed"
+    },
+    "brute_force_high_value_drift": {
+      "samples": 2000000,
+      "seconds": 2.9111730000004172,
+      "samples_per_second": 687008.295281563,
+      "found": null
+    }
+  }
+}

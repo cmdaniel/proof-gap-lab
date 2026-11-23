@@ -1,10 +1,12 @@
 """Run every variant through every tier and write a detection matrix.
 
-    uv run python -m proofgap.experiment            # print + write RESULTS.md
+    uv run python -m proofgap.experiment    # print + write RESULTS.md and results.json
 """
 
 from __future__ import annotations
 
+import json
+import platform
 import sys
 import time
 from pathlib import Path
@@ -61,7 +63,9 @@ def run() -> tuple[list[Variant], dict[str, dict[str, TierResult]], float]:
     for v in vs:
         results[v.name] = {}
         for tier, fn in TIERS.items():
+            t = time.perf_counter()
             results[v.name][tier] = r = fn(v)
+            r.seconds = time.perf_counter() - t
             print(f"  {v.name:<30} {tier:<12} {MARK[r.status]:<7} {r.detail}", file=sys.stderr)
     return vs, results, time.perf_counter() - t0
 
@@ -124,15 +128,37 @@ def report(vs, results, seconds) -> str:
     return "\n".join(out) + "\n"
 
 
+def to_json(vs, results, seconds) -> dict:
+    """Machine-readable results, same shape as the Rust lab's results.json."""
+    from importlib.metadata import version
+
+    import z3
+    return {
+        "language": "python",
+        "versions": {"python": platform.python_version(), "z3": z3.get_full_version(),
+                     "property_testing": f"hypothesis {version('hypothesis')}"},
+        "order": [v.name for v in vs],
+        "variants": {
+            v.name: {"layer": v.layer,
+                     "tiers": {t: {"status": r.status, "detail": r.detail, "witness": r.witness,
+                                   "seconds": r.seconds}
+                               for t, r in results[v.name].items()}}
+            for v in vs
+        },
+        "total_seconds": seconds,
+    }
+
+
 def main() -> None:
     vs, results, seconds = run()
     md = report(vs, results, seconds)
     Path("RESULTS.md").write_text(md)
+    Path("results.json").write_text(json.dumps(to_json(vs, results, seconds), indent=2, ensure_ascii=False) + "\n")
     print()
     print(matrix(vs, results))
     print()
     print("\n".join(only_catcher(vs, results)))
-    print(f"\nWrote RESULTS.md ({seconds:.1f}s)")
+    print(f"\nWrote RESULTS.md and results.json ({seconds:.1f}s)")
 
 
 if __name__ == "__main__":

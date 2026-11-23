@@ -1,0 +1,54 @@
+{
+  "language": "rust",
+  "machine": "macos aarch64",
+  "results": {
+    "boundary_witnesses": {
+      "count": 14,
+      "ms": 5.10475
+    },
+    "brute_force_high_value_drift": {
+      "found": null,
+      "samples": 1000000000,
+      "samples_per_second": 161834603.46610934,
+      "seconds": 6.179148208
+    },
+    "exec_compiled": {
+      "calls": 1000000,
+      "checksum": "3e348fe7fba5dad5",
+      "ns_per_call": 1.464959,
+      "seconds": 0.001464959
+    },
+    "exec_legacy": {
+      "calls": 1000000,
+      "checksum": "3e348fe7fba5dad5",
+      "ns_per_call": 9.465333,
+      "seconds": 0.009465333
+    },
+    "oracle": {
+      "calls": 2000,
+      "checksum": "eabbed5f140c177a",
+      "matches_compiled": true,
+      "seconds": 0.045699667,
+      "us_per_call": 22.849833500000003
+    },
+    "property_1000": {
+      "ms": 0.7601249999999999
+    },
+    "property_100k_high_value_drift": {
+      "seconds": 0.068610542,
+      "status": "missed"
+    },
+    "prove_high_value_drift": {
+      "ms": 4.2805,
+      "refuted": [
+        "no_overdraft"
+      ]
+    },
+    "prove_spec": {
+      "all_proved": true,
+      "ms": 4.0243329999999995,
+      "promises": 5
+    }
+  },
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01) (Homebrew)"
+}

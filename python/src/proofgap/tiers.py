@@ -38,6 +38,8 @@ class Variant:
 class TierResult:
     status: str  # "caught" | "missed" | "n/a"
     detail: str = ""
+    witness: dict[str, int] | None = None  # the input that exposed the bug
+    seconds: float = 0.0
 
 
 # --- Tier 1: unit tests ----------------------------------------------------
@@ -58,9 +60,11 @@ def unit_tier(v: Variant) -> TierResult:
     for (s, d, a), expected in UNIT_CASES:
         got = v.artifact(src=s, dst=d, amount=a)
         if got != expected:
-            failures.append(f"transfer({s}, {d}, {a}) = {got}, expected {expected}")
+            failures.append((f"transfer({s}, {d}, {a}) = {got}, expected {expected}",
+                             {"src": s, "dst": d, "amount": a}))
     if failures:
-        return TierResult("caught", f"{len(failures)}/{len(UNIT_CASES)} failed; e.g. {failures[0]}")
+        msg, w = failures[0]
+        return TierResult("caught", f"{len(failures)}/{len(UNIT_CASES)} failed; e.g. {msg}", w)
     return TierResult("missed", f"{len(UNIT_CASES)}/{len(UNIT_CASES)} passed")
 
 
@@ -98,7 +102,7 @@ def property_tier(v: Variant, examples: int = 1_000) -> TierResult:
     hit = _run_hypothesis(SPEC, check, examples)
     if hit:
         inputs, msg = hit
-        return TierResult("caught", f"{msg} at {_fmt(inputs)}")
+        return TierResult("caught", f"{msg} at {_fmt(inputs)}", dict(inputs))
     return TierResult("missed", f"{examples} random inputs, all promises held")
 
 
@@ -111,7 +115,8 @@ def proof_tier(v: Variant) -> TierResult:
     unknown = [r for r in results if r.status == "unknown"]
     if refuted:
         r = refuted[0]
-        return TierResult("caught", f"{r.promise} refuted, counterexample {_fmt(r.counterexample)}")
+        return TierResult("caught", f"{r.promise} refuted, counterexample {_fmt(r.counterexample)}",
+                          r.counterexample)
     if unknown:
         return TierResult("missed", f"solver gave up on {', '.join(r.promise for r in unknown)}")
     return TierResult("missed", f"all {len(results)} promises proved for every input in the domain")
@@ -129,11 +134,11 @@ def conformance_tier(v: Variant, examples: int = 1_000) -> TierResult:
     for w in witnesses:
         msg = check(w)
         if msg:
-            return TierResult("caught", f"solver-chosen boundary input {_fmt(w)}: {msg}")
+            return TierResult("caught", f"solver-chosen boundary input {_fmt(w)}: {msg}", w)
     hit = _run_hypothesis(v.reference, check, examples)
     if hit:
         inputs, msg = hit
-        return TierResult("caught", f"random input {_fmt(inputs)}: {msg}")
+        return TierResult("caught", f"random input {_fmt(inputs)}: {msg}", dict(inputs))
     return TierResult("missed", f"{len(witnesses)} boundary + {examples} random inputs agreed")
 
 

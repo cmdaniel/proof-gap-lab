@@ -1,0 +1,335 @@
+{
+  "language": "rust",
+  "order": [
+    "baseline (compiled)",
+    "fee not debited",
+    "fee helper drift",
+    "fee helper drift, ≥ £1m only",
+    "fee paid to payee",
+    "compiler: associativity",
+    "compiler: ceil template",
+    "legacy service",
+    "legacy: strict check"
+  ],
+  "overflow_obligations": {
+    "checked": 25,
+    "overflowing": []
+  },
+  "total_seconds": 0.24574225,
+  "variants": {
+    "baseline (compiled)": {
+      "layer": "-",
+      "tiers": {
+        "conformance": {
+          "detail": "13 boundary + 1000 random inputs agreed",
+          "seconds": 0.031677875,
+          "status": "missed",
+          "witness": null
+        },
+        "proof": {
+          "detail": "all 5 promises proved for every input in the domain",
+          "seconds": 0.008528375,
+          "status": "missed",
+          "witness": null
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.000884958,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "5/5 passed",
+          "seconds": 0.000040166,
+          "status": "missed",
+          "witness": null
+        }
+      }
+    },
+    "compiler: associativity": {
+      "layer": "compiler",
+      "tiers": {
+        "conformance": {
+          "detail": "solver-chosen boundary input {src=2, dst=0, amount=1}: executable (2, 1, 1) != proved semantics (0, 1, 1)",
+          "seconds": 0.005506625,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 2
+          }
+        },
+        "proof": {
+          "detail": "all 5 promises proved for every input in the domain",
+          "seconds": 0.004507292,
+          "status": "missed",
+          "witness": null
+        },
+        "property": {
+          "detail": "broke conservation at {src=193343556457, dst=0, amount=1}",
+          "seconds": 0.000070833,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 193343556457
+          }
+        },
+        "unit": {
+          "detail": "2/5 failed; e.g. transfer(50000, 0, 10000) = (40025, 10000, 25), expected (39975, 10000, 25)",
+          "seconds": 2.416e-6,
+          "status": "caught",
+          "witness": {
+            "amount": 10000,
+            "dst": 0,
+            "src": 50000
+          }
+        }
+      }
+    },
+    "compiler: ceil template": {
+      "layer": "compiler",
+      "tiers": {
+        "conformance": {
+          "detail": "solver-chosen boundary input {src=2, dst=0, amount=1}: executable (1, 1, 0) != proved semantics (0, 1, 1)",
+          "seconds": 0.004886208,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 2
+          }
+        },
+        "proof": {
+          "detail": "all 5 promises proved for every input in the domain",
+          "seconds": 0.003263959,
+          "status": "missed",
+          "witness": null
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.000609,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "1/5 failed; e.g. transfer(5000, 1000, 1000) = (3998, 2000, 2), expected (3997, 2000, 3)",
+          "seconds": 1.042e-6,
+          "status": "caught",
+          "witness": {
+            "amount": 1000,
+            "dst": 1000,
+            "src": 5000
+          }
+        }
+      }
+    },
+    "fee helper drift": {
+      "layer": "source",
+      "tiers": {
+        "conformance": {
+          "detail": "13 boundary + 1000 random inputs agreed",
+          "seconds": 0.029150625,
+          "status": "missed",
+          "witness": null
+        },
+        "proof": {
+          "detail": "no_overdraft refuted, counterexample {src=1, dst=0, amount=1}",
+          "seconds": 0.005002542,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 1
+          }
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.000759417,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "5/5 passed",
+          "seconds": 7.5e-7,
+          "status": "missed",
+          "witness": null
+        }
+      }
+    },
+    "fee helper drift, ≥ £1m only": {
+      "layer": "source",
+      "tiers": {
+        "conformance": {
+          "detail": "19 boundary + 1000 random inputs agreed",
+          "seconds": 0.039130708,
+          "status": "missed",
+          "witness": null
+        },
+        "proof": {
+          "detail": "no_overdraft refuted, counterexample {src=100250399, dst=0, amount=100000399}",
+          "seconds": 0.00509325,
+          "status": "caught",
+          "witness": {
+            "amount": 100000399,
+            "dst": 0,
+            "src": 100250399
+          }
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.000822,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "5/5 passed",
+          "seconds": 7.92e-7,
+          "status": "missed",
+          "witness": null
+        }
+      }
+    },
+    "fee not debited": {
+      "layer": "source",
+      "tiers": {
+        "conformance": {
+          "detail": "13 boundary + 1000 random inputs agreed",
+          "seconds": 0.028799167,
+          "status": "missed",
+          "witness": null
+        },
+        "proof": {
+          "detail": "conservation refuted, counterexample {src=2, dst=0, amount=1}",
+          "seconds": 0.00449775,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 2
+          }
+        },
+        "property": {
+          "detail": "broke conservation at {src=193343556457, dst=0, amount=1}",
+          "seconds": 0.000089834,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 193343556457
+          }
+        },
+        "unit": {
+          "detail": "2/5 failed; e.g. transfer(50000, 0, 10000) = (40000, 10000, 25), expected (39975, 10000, 25)",
+          "seconds": 4.084e-6,
+          "status": "caught",
+          "witness": {
+            "amount": 10000,
+            "dst": 0,
+            "src": 50000
+          }
+        }
+      }
+    },
+    "fee paid to payee": {
+      "layer": "source",
+      "tiers": {
+        "conformance": {
+          "detail": "13 boundary + 1000 random inputs agreed",
+          "seconds": 0.028611791,
+          "status": "missed",
+          "witness": null
+        },
+        "proof": {
+          "detail": "all 5 promises proved for every input in the domain",
+          "seconds": 0.00418375,
+          "status": "missed",
+          "witness": null
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.000815541,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "2/5 failed; e.g. transfer(50000, 0, 10000) = (39975, 10025, 0), expected (39975, 10000, 25)",
+          "seconds": 3.042e-6,
+          "status": "caught",
+          "witness": {
+            "amount": 10000,
+            "dst": 0,
+            "src": 50000
+          }
+        }
+      }
+    },
+    "legacy service": {
+      "layer": "legacy",
+      "tiers": {
+        "conformance": {
+          "detail": "13 boundary + 1000 random inputs agreed",
+          "seconds": 0.030599625,
+          "status": "missed",
+          "witness": null
+        },
+        "proof": {
+          "detail": "not written in the proof language; nothing to prove",
+          "seconds": 2.09e-7,
+          "status": "n/a",
+          "witness": null
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.00076425,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "5/5 passed",
+          "seconds": 1.042e-6,
+          "status": "missed",
+          "witness": null
+        }
+      }
+    },
+    "legacy: strict check": {
+      "layer": "legacy",
+      "tiers": {
+        "conformance": {
+          "detail": "solver-chosen boundary input {src=2, dst=0, amount=1}: executable (2, 0, 0) != proved semantics (0, 1, 1)",
+          "seconds": 0.005541042,
+          "status": "caught",
+          "witness": {
+            "amount": 1,
+            "dst": 0,
+            "src": 2
+          }
+        },
+        "proof": {
+          "detail": "not written in the proof language; nothing to prove",
+          "seconds": 2.09e-7,
+          "status": "n/a",
+          "witness": null
+        },
+        "property": {
+          "detail": "1000 random inputs, all promises held",
+          "seconds": 0.00077025,
+          "status": "missed",
+          "witness": null
+        },
+        "unit": {
+          "detail": "5/5 passed",
+          "seconds": 7.5e-7,
+          "status": "missed",
+          "witness": null
+        }
+      }
+    }
+  },
+  "versions": {
+    "property_testing": "proptest 1.12",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01) (Homebrew)",
+    "z3": "5.4.1.0 145c0c51570a357cc558ce898ce77573ba9d4fbf 145c0c5"
+  }
+}

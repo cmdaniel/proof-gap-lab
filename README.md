@@ -1,46 +1,65 @@
 # proof-gap-lab
 
-A small, runnable Python experiment on where formal verification stops and tests have to take over. It uses a toy proof language, the Z3 solver and Hypothesis to measure which bugs a proof catches, which ones it cannot see, and which tests close the gap.
+A small, runnable experiment on where formal verification stops and tests have to take over, built twice: once in **Python** and once in **Rust**. Each version uses a toy proof language, the Z3 solver and a property-testing library to measure which bugs a proof catches, which ones it cannot see, and which tests close the gap. A comparison script then checks that the two languages reach the same conclusions and measures how fast each one runs.
 
-> **Educational experiment, not production software.** Nothing here is affiliated with or endorsed by the Bend, Z3 or Hypothesis projects. Bend 2 is the motivating example, not the subject: this lab does not run or audit Bend. See [Limits](#limits) and [Conditions of use](#conditions-of-use).
+> **Educational experiment, not production software.** Nothing here is affiliated with or endorsed by the Bend, Z3, Hypothesis or proptest projects. Bend 2 is the motivating example, not the subject: this lab does not run or audit Bend. See [Limits](#limits) and [Conditions of use](#conditions-of-use).
 
 It tests two claims:
 
-1. **The compiler verification gap.** In proof languages such as Bend 2, the proof-checking core can be trustworthy while the compiler that turns source into an executable is not. A proof about the source is not a proof about the binary. And a proof language only covers code written in it, so existing TypeScript or Python services are outside its reach.
+1. **The compiler verification gap.** In proof languages such as Bend 2, the proof-checking core can be trustworthy while the compiler that turns source into an executable is not. A proof about the source is not a proof about the binary. And a proof language only covers code written in it, so existing TypeScript, Python or Rust services are outside its reach.
 2. **Verification is the top tier, not a replacement.** Formal proof gives certainty about the core promises across *every* input, which path-based tests cannot reach. But it only proves what you wrote down, about the code it can see. Conventional tests still do work that proofs cannot.
 
-The lab builds a toy version of the whole stack around one critical function (a ledger transfer with a fee), injects realistic bugs at each layer, and records which reliability tier catches each one.
+## Repository layout
+
+```
+proof-gap-lab/
+├── python/                 Python lab (uv project)
+│   ├── src/proofgap/       dsl, spec, checker, compiler, legacy, tiers, experiment, bench
+│   ├── tests/              pytest suite pinning the results
+│   ├── RESULTS.md          generated: matrix + evidence + emitted code
+│   ├── results.json        generated: machine-readable results
+│   └── bench.json          generated: performance numbers
+├── rust/                   Rust lab (cargo crate), same modules, same experiment
+│   ├── build.rs            runs the unverified DSL → Rust compiler at build time
+│   ├── src/                dsl, spec, catalog, checker, compiler, legacy, tiers
+│   ├── src/bin/            experiment.rs, bench.rs
+│   ├── tests/lab.rs        cargo test suite pinning the results
+│   └── RESULTS.md, results.json, bench.json
+├── scripts/compare.py      cross-language check → COMPARISON.md
+└── COMPARISON.md           generated: Python vs Rust, side by side
+```
 
 ## The setup
 
-| Real-world piece | In this lab |
-|---|---|
-| Proof language source | [`spec.py`](src/proofgap/spec.py): the transfer, written in a tiny integer DSL ([`dsl.py`](src/proofgap/dsl.py)) |
-| Verified proof-checking core | [`checker.py`](src/proofgap/checker.py): DSL → Z3. Proves each promise for all inputs, or returns a counterexample |
-| Unverified compiler to executable | [`compiler.py`](src/proofgap/compiler.py): DSL → Python source → callable, using a normal precedence-table emitter |
-| Existing enterprise code | [`legacy.py`](src/proofgap/legacy.py): the same rule, written by hand as a `LedgerService` class |
+Both languages build the same stack around one critical function, a ledger transfer with a 25 basis point fee.
 
-**Core promises** proved over all `src, dst ∈ [0, £10bn]` and `amount ∈ [−£10bn, £10bn]`, in pence:
-conservation of money, no overdraft, non-negative fee, payee never debited, and invalid amounts are no-ops.
+| Real-world piece | Python | Rust |
+|---|---|---|
+| Proof language source | [`spec.py`](python/src/proofgap/spec.py) in a tiny integer DSL ([`dsl.py`](python/src/proofgap/dsl.py)) | [`spec.rs`](rust/src/spec.rs) in the same DSL ([`dsl.rs`](rust/src/dsl.rs)) |
+| Verified proof-checking core | [`checker.py`](python/src/proofgap/checker.py): DSL → Z3 | [`checker.rs`](rust/src/checker.rs): DSL → Z3, building the same terms |
+| Unverified compiler to executable | [`compiler.py`](python/src/proofgap/compiler.py): DSL → Python source → `exec` | [`compiler.rs`](rust/src/compiler.rs), run by [`build.rs`](rust/build.rs): DSL → Rust source → `rustc` → native code |
+| Existing enterprise code | [`legacy.py`](python/src/proofgap/legacy.py): hand-written `LedgerService` | [`legacy.rs`](rust/src/legacy.rs): the same service, hand-written in Rust |
 
-**Four tiers**, all in [`tiers.py`](src/proofgap/tiers.py):
+**Core promises**, proved for all `src, dst ∈ [0, £10bn]` and `amount ∈ [−£10bn, £10bn]` in pence: money is conserved, the payer is never overdrawn, the fee is never negative, the payee is never debited, and invalid amounts change nothing.
+
+**Four tiers**, in [`tiers.py`](python/src/proofgap/tiers.py) and [`tiers.rs`](rust/src/tiers.rs):
 
 | Tier | What it runs against | Oracle |
 |---|---|---|
 | unit | the executable | 5 hand-written examples from the business requirements |
-| property | the executable | the core promises, checked on 1,000 Hypothesis inputs |
+| property | the executable | the core promises, on 1,000 random inputs (Hypothesis in Python, proptest in Rust) |
 | proof | the DSL **source** | the core promises, for **every** input (Z3) |
-| conformance | the executable | output equality with the *proved* Z3 semantics, on solver-generated boundary inputs plus 1,000 random ones |
+| conformance | the executable | exact output equality with the *proved* Z3 semantics, on solver-generated boundary inputs plus 1,000 random ones |
 
 ## Results
 
-`uv run python -m proofgap.experiment` produces this table (full evidence and the generated code are in [RESULTS.md](RESULTS.md)):
+Both languages produce the same detection matrix except for one property-testing cell. Each language's full evidence and generated code are in [python/RESULTS.md](python/RESULTS.md) and [rust/RESULTS.md](rust/RESULTS.md). The side-by-side view is in [COMPARISON.md](COMPARISON.md).
 
 | variant | bug lives in | unit | property | proof | conformance |
 |---|---|---|---|---|---|
 | baseline (compiled) | - | · | · | · | · |
 | fee not debited | source | **CAUGHT** | **CAUGHT** | **CAUGHT** | · |
-| fee helper drift | source | · | **CAUGHT** | **CAUGHT** | · |
+| fee helper drift | source | · | **Python only** | **CAUGHT** | · |
 | fee helper drift, ≥ £1m only | source | · | · | **CAUGHT** | · |
 | fee paid to payee | source | **CAUGHT** | · | · | · |
 | compiler: associativity | compiler | **CAUGHT** | **CAUGHT** | · | **CAUGHT** |
@@ -48,39 +67,89 @@ conservation of money, no overdraft, non-negative fee, payee never debited, and 
 | legacy service | legacy | · | · | n/a | · |
 | legacy: strict check | legacy | · | · | n/a | **CAUGHT** |
 
-Each of the upper three tiers catches at least one bug that nothing else catches.
+`CAUGHT` = the tier reports a failure. `·` = the tier passes and the bug gets through. `n/a` = the tier cannot be applied.
+
+Each of the upper three tiers catches at least one bug that nothing else catches, in both languages.
 
 ### 1. The proof reaches what sampling cannot
 
 *fee helper drift, ≥ £1m only*: on the high-value path, the affordability check uses a floor-rounded quote fee, but the debit takes the ceiling ledger fee. When the payer holds exactly `amount + fee − 1` pence, they end up at −1p. Each amount has only one balance that triggers it, and only above £1m.
 
-- Z3 refutes `no_overdraft` in about **10 ms**: `src=100250399, amount=100000399`.
-- Hypothesis misses it at 1,000 inputs, and still misses it at **100,000 inputs (23 s)**.
+- Z3 refutes `no_overdraft` in about **4 ms** in both languages, with the same counterexample: `src=100250399, amount=100000399`.
+- Property testing misses it at 100,000 inputs in both languages: 23 s in Python, 0.07 s in Rust.
+- Raw random sampling in Rust tried **1 billion** inputs in 6 s and still missed. The exact chance of hitting the bug with one random input is 4.97 × 10⁻¹³, so random sampling needs about 2 × 10¹² tries on average: about 3.5 hours in Rust, or about 34 days in Python.
 
-When the same drift applies to *all* amounts, Hypothesis finds it immediately (shrunk to `src=1, amount=1`): for small amounts, the trigger is just `src == amount`, and Hypothesis deliberately generates small and repeated values. Property testing is strong. It is just not exhaustive, and bugs that only fire under particular conditions are where that matters.
+Speed changes how much sampling you can afford. It does not turn sampling into a guarantee. The proof is still faster than the fastest sampler by six orders of magnitude, and it also proves that every *other* input is safe.
 
 ### 2. The compiler gap is real, and the proof cannot see it
 
-Both compiler bugs are one-character slips in an otherwise reasonable code generator:
+Both compiler bugs are one-character slips in an otherwise reasonable code generator. The Rust version emits real Rust that `rustc` compiles:
 
-```python
-# correct emit                              # assoc_bug: '-' treated as associative
-new_src = src - (amount + fee_due) if ok …   new_src = src - amount + fee_due if ok …
+```rust
+// correct emit                                     // assoc_bug: '-' treated as associative
+let new_src = if ok { src - (amount + fee_due) } …   let new_src = if ok { src - amount + fee_due } …
 ```
 
-For both, the proof tier reports *all 5 promises proved*, which is true of the source. The executable is still wrong. The *ceil template* bug is the more dangerous one: every safety promise still holds at runtime (fees are just 1p low), so property tests pass as well. Only exact-output checks catch it: the unit test with a 2.5p fee, and conformance testing against the proved semantics.
+For both bugs, the proof tier reports *all 5 promises proved*, which is true of the source. The executable is still wrong. The *ceil template* bug is the more dangerous one: every safety promise still holds at runtime (fees are just 1p low), so property tests pass too. Only exact-output checks catch it.
 
-**Conformance testing is the bridge across the gap.** It checks that the thing that runs computes what the thing that was proved computes. Here, the solver also chooses the test inputs: for every decision boundary in the spec, Z3 generates inputs on and next to the edge. That found the compiler bugs, and the legacy off-by-one, on its first boundary input.
+**Conformance testing is the bridge across the gap.** It checks that the code that runs computes what the code that was proved computes. Z3 also picks the test inputs: for every decision boundary in the spec, it generates inputs on and next to the edge. In both languages, the first such input, `(2, 0, 1)`, exposed both compiler bugs and the legacy off-by-one.
 
 ### 3. Legacy code is outside the proof's reach
 
-The hand-written `LedgerService` cannot be proved. It is not in the proof language. The *strict check* bug (`<` where `<=` was meant, so a customer can never spend their whole balance) breaks no safety promise, so property tests pass, and the typical unit suite never tries a full-balance payment. Only conformance against the proved spec catches it.
+The hand-written `LedgerService` cannot be proved in either language, because it is not in the proof language. The *strict check* bug (`<` where `<=` was meant, so a customer can never spend their whole balance) breaks no safety promise, and the typical unit suite never tries a full-balance payment. Only conformance against the proved spec catches it.
 
 That is the practical path for existing codebases: prove the specification, then test the existing code against it.
 
 ### 4. A proof only covers what you stated
 
-*fee paid to payee* credits the fee to the recipient instead of the bank. Money is conserved, nobody is overdrawn, the fee is non-negative: **every promise is proved**. Conformance passes too, because the executable faithfully implements the wrong spec. Only a plain unit test, written from what the business actually wanted ("the bank collects 25p"), fails.
+*fee paid to payee* credits the fee to the recipient instead of the bank. Every promise is proved, and conformance passes too, because the executable faithfully implements the wrong spec. Only a plain unit test, written from what the business actually wanted ("the bank collects 25p"), fails. The result is the same in both languages.
+
+## Python vs Rust: do the results match?
+
+[`scripts/compare.py`](scripts/compare.py) reads both `results.json` files and both `bench.json` files, writes [COMPARISON.md](COMPARISON.md), and with `--check` fails CI if the deterministic tiers disagree.
+
+| Check | Result |
+|---|---|
+| Same Z3 in both languages | Yes: 5.4.1. Python uses `z3-solver`; Rust's `z3-sys` downloads the same release (pinned in [`rust/.cargo/config.toml`](rust/.cargo/config.toml)) |
+| Unit, proof and conformance tiers | **Agree on all 27 cells** |
+| Property tier | Agrees on 8 of 9 variants (see below) |
+| Proof counterexamples and solver-chosen boundary inputs | **Identical** in every case, e.g. `(100250399, 0, 100000399)` |
+| Compiled transfer, 1,000,000 identical inputs | Same output checksum in both languages: `3e348fe7fba5dad5` |
+| Hand-written legacy service, same inputs | Same checksum as the compiled code, in both languages |
+| Z3 oracle vs compiled code, 2,000 inputs | Agree in both languages, and the oracle checksums match across languages |
+
+The cross-check is strong because the two languages were built independently from the same DSL: two compilers, two hand-written services and two Z3 bindings. All four executables agree on a million inputs, and both proof pipelines return the same counterexamples.
+
+### Where they differ, and why
+
+- **Property testing: library, not language.** Hypothesis catches *fee helper drift* (all amounts) at `src=1, amount=1`, because it deliberately generates small and repeated values. For small amounts the bug triggers whenever `src == amount`. proptest samples integer ranges uniformly, so with 1,000 cases it never lands on an exact balance. A different library search strategy changed a result. That is one more reason not to treat any single sampling tier as a guarantee.
+- **Shrinking.** Hypothesis shrinks failures to minimal examples like `(2, 0, 1)`. proptest stopped at `(193343556457, 0, 1)`. Both are valid witnesses, but the Python one is easier to read.
+- **Integer semantics.** The proof uses mathematical integers. Python's integers are unbounded, so they match. Rust uses `i64`, so the Rust checker adds **overflow obligations**: Z3 proves that all 25 integer subterms of the spec fit in `i64` for every input in the domain. This closes one compiler gap that only exists in Rust.
+- **Division.** Rust's `/` truncates toward zero, while the DSL, Python's `//` and Z3 all floor. The Rust emitter uses `div_euclid`. A naive port that emitted `/` would have been a third compiler bug, and here a silent one: fee numerators are never negative for valid transfers, so no test would ever see it.
+- **Where the compiler runs.** Python compiles generated source at runtime with `exec`. Rust generates source in `build.rs`, and then `rustc` compiles it. That places a second, much larger unverified compiler (`rustc` and LLVM) between the proof and the machine. It is very well tested, but not verified, which is exactly the point of claim 1.
+
+## Performance
+
+One run on Apple Silicon (macOS, arm64), Rust in release mode. These are medians of repeated runs. Read the ratios, not the absolute numbers. Full numbers are in [COMPARISON.md](COMPARISON.md).
+
+| workload | Python | Rust | Rust advantage |
+|---|---|---|---|
+| compiled transfer, per call | 446 ns | 1.5 ns | ~300× |
+| hand-written legacy service, per call | 600 ns | 9.5 ns | ~60× |
+| property tier, 1,000 cases | 205 ms | 0.8 ms | ~270× |
+| property tier, 100,000 cases | 23.1 s | 0.07 s | ~340× |
+| raw random sampling | 0.7 M/s | 162 M/s | ~235× |
+| Z3 oracle evaluation, per call | 98 µs | 23 µs | ~4× |
+| solver boundary inputs (14 witnesses) | 7.3 ms | 5.1 ms | ~1.4× |
+| prove all 5 promises | 3.7 ms | 4.0 ms | ~1× |
+| whole experiment (9 variants × 4 tiers) | ~3.5 s | ~0.2 s | ~17× |
+
+What the numbers show:
+
+- **Testing is where the language matters.** Executing and sampling are 60–340× faster in Rust, so Rust can afford far more random and conformance testing in the same CI budget.
+- **Proving is where it does not.** Both languages hand the same question to the same C++ solver, so proof time is the same (about 4 ms). The Python binding overhead is too small to see here.
+- **Oracle calls are in between.** Each one crosses into Z3, so the gap shrinks to about 4×.
+- **The proof's advantage does not depend on the language.** Proving or refuting all five promises takes about 4 ms. Finding the high-value bug by random sampling takes hours even at native speed.
 
 ## What this suggests
 
@@ -97,29 +166,46 @@ That is the practical path for existing codebases: prove the specification, then
 ```
 
 - Prove the few promises where being wrong is unacceptable, such as conservation and no overdraft.
-- Treat everything between the proof and the running code (compiler, runtime, glue, legacy) as unverified. Test it against the proved semantics, using the solver to pick the inputs.
+- Treat everything between the proof and the running code (compiler, runtime, machine integers, glue, legacy) as unverified. Test it against the proved semantics, using the solver to pick inputs, and discharge machine-level obligations such as overflow where you can.
 - Keep example tests. They are the only tier here that encodes *intent* rather than stated properties.
+- A faster language buys more testing, not certainty.
 
 ## Trusted base, honestly
 
-Even this lab's "verified core" relies on code that is not verified: Z3 itself, the `to_z3` translation, and the `Oracle` that evaluates proved terms. The tests in [`tests/test_lab.py`](tests/test_lab.py) do the obvious cross-check: every counterexample the solver returns is replayed on the compiled code and must reproduce. Every proof has a trusted base. The useful question is how small it is and what you test around it.
+Even the "verified core" relies on code that is not verified: Z3 itself, the `to_z3` translation in each language, and the oracles that evaluate proved terms. In Rust, that also includes `rustc` and LLVM. Both test suites do the obvious cross-check: every counterexample the solver returns is replayed on the compiled code and must reproduce. The Python–Rust comparison adds a further independent check: two separate implementations agree on the same counterexamples and on a million outputs. Every proof has a trusted base. The useful question is how small it is and what you test around it.
 
 ## Limits
 
-- It is an analogy, not a measurement of any real proof language. The Bend 2 framing in this README describes the general architecture of proof-carrying languages. It is not a statement about Bend 2's current compiler or its verification status, which can change between releases.
-- It is a toy: one function, linear integer arithmetic (the fee rate is a constant, which keeps Z3 decidable and fast), and unbounded Python integers. Real targets add overflow, floats, concurrency and I/O.
+- It is an analogy, not a measurement of any real proof language. The Bend 2 framing describes the general architecture of proof-carrying languages. It is not a statement about Bend 2's current compiler or its verification status, which can change between releases.
+- It is a toy: one function, linear integer arithmetic (the fee rate is a constant, which keeps Z3 decidable and fast), and no floats in the spec, concurrency or I/O.
 - The bugs were chosen to illustrate each layer. They are realistic, but the matrix depends on them. The unit suite is meant to be typical, and a different suite would change some cells (a "spend the whole balance" test would also catch *strict check*).
-- Hypothesis runs are derandomized, so results are reproducible. Other seeds may find or miss different things.
+- Random testing is seeded (Hypothesis `derandomize=True`, proptest with a fixed ChaCha seed), so results are reproducible. Other seeds or library versions may find or miss different things.
+- Performance numbers come from one machine and one run. CI runners and other machines will differ, and micro-benchmarks of a 1–500 ns function are sensitive to inlining and measurement overhead.
+- Results were produced with z3-solver 5.4.1 and Hypothesis 6.170.17 on Python 3.13.14, and with Rust 1.98.1, the `z3` crate 0.25 (Z3 5.4.1) and proptest 1.12. Lock files pin them: [`python/uv.lock`](python/uv.lock) and `rust/Cargo.lock`. Newer versions may change counterexamples, timings or which random inputs get tried.
 
 ## Run it
 
 ```bash
+# Python (needs uv, Python ≥ 3.11)
+cd python
 uv sync
-uv run python -m proofgap.experiment   # prints the matrix, writes RESULTS.md (~4 s)
-uv run pytest -q                        # pins the matrix and the cross-checks
+uv run pytest -q                       # 15 tests: pins the matrix and the cross-checks
+uv run python -m proofgap.experiment   # matrix → RESULTS.md, results.json (~4 s)
+uv run python -m proofgap.bench        # performance → bench.json (~35 s)
+
+# Rust (needs Rust ≥ 1.88; the first build downloads Z3 5.4.1 from GitHub releases)
+cd ../rust
+cargo test --release                   # 6 tests: same claims, plus i64 overflow obligations
+cargo run --release --bin experiment   # matrix → RESULTS.md, results.json (~0.2 s)
+cargo run --release --bin bench        # performance → bench.json (~10 s)
+
+# Compare
+cd ..
+python3 scripts/compare.py             # → COMPARISON.md
+python3 scripts/compare.py --check     # exit 1 if deterministic tiers disagree
 ```
 
-Requires Python ≥ 3.11. Dependencies: `z3-solver`, `hypothesis`, `pytest`. Results were produced with z3-solver 5.4.1 and Hypothesis 6.170.17 on Python 3.13.14 (pinned in `uv.lock`). Newer versions may change solver counterexamples, run times or Hypothesis's search, and so some cells or witnesses in the table may change.
+CI ([`.github/workflows/test.yml`](.github/workflows/test.yml)) runs both test suites and both experiments, then runs the cross-language `--check` on every push.
 
 ## References
 
@@ -127,12 +213,15 @@ These links and descriptions were checked on **23 November 2026**. Projects move
 
 - Bend 2: [github.com/bendlang/bend](https://github.com/bendlang/bend) · [bend-lang.com](https://bend-lang.com). Describes itself as "a fast language that blocks AI mistakes via proof". The original Bend 1 lives at [github.com/HigherOrderCO/Bend](https://github.com/HigherOrderCO/Bend).
 - Z3 theorem prover: [github.com/Z3Prover/z3](https://github.com/Z3Prover/z3) · [Z3 guide](https://microsoft.github.io/z3guide/)
+- Z3 Rust bindings: [github.com/prove-rs/z3.rs](https://github.com/prove-rs/z3.rs) · [docs.rs/z3](https://docs.rs/z3/0.25.0/z3/)
 - Hypothesis (property-based testing for Python): [github.com/HypothesisWorks/hypothesis](https://github.com/HypothesisWorks/hypothesis) · [docs](https://hypothesis.readthedocs.io/)
-- uv (Python project manager used to run this lab): [github.com/astral-sh/uv](https://github.com/astral-sh/uv)
+- proptest (property-based testing for Rust): [github.com/proptest-rs/proptest](https://github.com/proptest-rs/proptest)
+- uv (Python project manager used to run the Python lab): [github.com/astral-sh/uv](https://github.com/astral-sh/uv)
 
 ## Conditions of use
 
 - Licensed under the [MIT License](LICENSE). The software is provided "as is", without warranty of any kind.
 - For learning and discussion only. The ledger, fee rule and bugs are synthetic. They do not describe any real bank, product or incident, and they are not financial, legal or compliance advice.
 - Do not treat a passing run of this lab as evidence that any real system is correct. The point of the experiment is that a proof covers only the promises you stated, about the code the checker can see.
-- Third-party names (Bend, Z3, Hypothesis, uv) belong to their owners. They are used here only to identify those projects.
+- Performance figures are illustrative measurements from one machine, not a general benchmark of Python or Rust.
+- Third-party names (Bend, Z3, Hypothesis, proptest, uv, Rust) belong to their owners. They are used here only to identify those projects.
