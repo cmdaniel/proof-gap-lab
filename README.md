@@ -9,6 +9,72 @@ It tests two claims:
 1. **The compiler verification gap.** In proof languages such as Bend 2, the proof-checking core can be trustworthy while the compiler that turns source into an executable is not. A proof about the source is not a proof about the binary. And a proof language only covers code written in it, so existing TypeScript, Python or Rust services are outside its reach.
 2. **Verification is the top tier, not a replacement.** Formal proof gives certainty about the core promises across *every* input, which path-based tests cannot reach. But it only proves what you wrote down, about the code it can see. Conventional tests still do work that proofs cannot.
 
+## The business problem
+
+Teams that handle money, safety or regulated data are starting to adopt formal verification, often alongside AI-generated code and proof-oriented languages such as Bend 2. That raises a practical question for engineering and risk leads:
+
+> **If a critical rule is mathematically proved, which tests can we drop, and which failures can still reach customers?**
+
+There are two ways to get this wrong:
+
+- **Over-trusting the proof.** "It's proved, ship it", even though the proof never saw the compiler, the hand-written legacy service that actually runs in production, or a business rule that nobody wrote down as a promise.
+- **Under-using the proof.** Relying on example and random tests for rules where a single rare failure is a reportable incident, even though tests can never cover every input.
+
+In payments, a defect that creates 1p, overdraws one account or misroutes one fee is small on its own. At scale it becomes a reconciliation break, a revenue leak or a conduct issue. The decision this lab supports is **which assurance activity to rely on for which kind of defect, what each one costs, and whether choosing a faster language changes the answer.**
+
+## The use case under test
+
+A ledger **transfer** service, the kind of small, critical core found in every payments platform:
+
+- It moves `amount` pence from a payer to a payee.
+- It charges a **25 basis point fee** (0.25%), rounded **up** to the next penny, which goes to the bank.
+- It rejects transfers with a non-positive amount, or where the payer cannot cover amount plus fee. A rejected transfer changes nothing.
+
+For example, a £100 transfer from a £500 balance leaves the payer with £399.75, credits the payee £100 and collects 25p for the bank.
+
+The rules split into two groups, and the split matters:
+
+| Kind of rule | Rules | How it is checked |
+|---|---|---|
+| **Core promises** (written down and proved) | money is conserved · the payer is never overdrawn · the fee is never negative · the payee is never debited · an invalid amount changes nothing | Z3 proof over every input up to £10bn |
+| **Business intent** (true, but not written as a promise) | the bank, not the payee, receives the fee · fees round up, not down · a customer can spend their entire balance | only example tests and conformance can see these |
+
+The code exists in three forms, as it does in most organisations: the **specification** that gets proved, the **compiled executable** produced from it by an unverified compiler, and an **existing hand-written service** that implements the same rule without any proof.
+
+Seven realistic defects are injected, each modelled on a familiar kind of production incident:
+
+| Injected defect | Where | Real-world analogue | Business impact |
+|---|---|---|---|
+| fee not debited | spec | a refactor drops part of a debit | money created; ledger does not reconcile |
+| fee helper drift | spec | affordability check and debit use two different fee helpers | customers overdrawn by 1p |
+| fee helper drift, ≥ £1m only | spec | the same drift, but only on the high-value payments path | rare overdrafts on the largest customers; very hard to find by testing |
+| fee paid to payee | spec | the fee is credited to the wrong party | revenue loss, yet every stated promise still holds |
+| compiler: associativity | compiler | a toolchain or code-generator change | balances computed wrongly for every paid transfer |
+| compiler: ceil template | compiler | a rounding regression in generated code | systematic 1p undercharge, invisible to safety checks |
+| legacy: strict check | legacy | `<` instead of `<=` in a hand-written service | customers cannot spend their full balance; complaints |
+
+## Expected outcomes
+
+The lab tests six hypotheses. Each one is checked against the detection matrix in both Python and Rust.
+
+| # | Hypothesis | Outcome |
+|---|---|---|
+| H1 | A proof catches rare spec defects that example and random tests miss. | **Confirmed.** Only the proof catches the ≥ £1m drift: 4 ms, versus a miss after 100,000 property tests and 1 billion random samples. |
+| H2 | A proof is blind to defects introduced by the compiler. | **Confirmed.** Both compiler bugs pass the proof. Conformance testing against the proved semantics catches them. |
+| H3 | A proof cannot cover existing code that is not written in the proof language. | **Confirmed.** The proof tier is not applicable to the legacy service. Only conformance catches its `<` bug. |
+| H4 | A proof only covers the promises you wrote down. | **Confirmed.** "Fee paid to payee" is fully proved. Only a business example test catches it. |
+| H5 | Conformance testing cannot catch a wrong specification. | **Confirmed.** It misses every spec defect, because the executable faithfully implements the wrong spec. |
+| H6 | A faster language makes testing cheaper but changes neither the cost of proof nor what a proof guarantees. | **Confirmed.** Rust tests are 60–340× faster than Python, while proof time is about 4 ms in both. |
+
+**What the outcome means for a team:** no single layer is enough, and each one has a job no other layer does:
+
+- **Proof:** certainty for the few promises where any failure is unacceptable.
+- **Conformance testing:** keeps the compiled and legacy code faithful to what was proved.
+- **Property testing:** cheap, broad coverage of the code that actually runs.
+- **Example tests:** the only layer that captures business intent nobody formalised.
+
+The [Results](#results) section shows the evidence for each hypothesis.
+
 ## Repository layout
 
 ```
