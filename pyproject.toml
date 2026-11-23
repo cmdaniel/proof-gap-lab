@@ -4,10 +4,15 @@ version = "0.1.0"
 description = "A small experiment on where formal verification stops and tests must take over."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "z3-solver>=4.13",
     "hypothesis>=6.100",
 ]
+
+[project.urls]
+Repository = "https://github.com/cmdaniel/proof-gap-lab"
 
 [dependency-groups]
 dev = ["pytest>=8"]

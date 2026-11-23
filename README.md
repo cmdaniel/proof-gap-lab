@@ -1,6 +1,8 @@
 # proof-gap-lab
 
-A small, runnable experiment on where formal verification stops and tests have to take over.
+A small, runnable Python experiment on where formal verification stops and tests have to take over. It uses a toy proof language, the Z3 solver and Hypothesis to measure which bugs a proof catches, which ones it cannot see, and which tests close the gap.
+
+> **Educational experiment, not production software.** Nothing here is affiliated with or endorsed by the Bend, Z3 or Hypothesis projects. Bend 2 is the motivating example, not the subject: this lab does not run or audit Bend. See [Limits](#limits) and [Conditions of use](#conditions-of-use).
 
 It tests two claims:
 
@@ -104,6 +106,7 @@ Even this lab's "verified core" relies on code that is not verified: Z3 itself, 
 
 ## Limits
 
+- It is an analogy, not a measurement of any real proof language. The Bend 2 framing in this README describes the general architecture of proof-carrying languages. It is not a statement about Bend 2's current compiler or its verification status, which can change between releases.
 - It is a toy: one function, linear integer arithmetic (the fee rate is a constant, which keeps Z3 decidable and fast), and unbounded Python integers. Real targets add overflow, floats, concurrency and I/O.
 - The bugs were chosen to illustrate each layer. They are realistic, but the matrix depends on them. The unit suite is meant to be typical, and a different suite would change some cells (a "spend the whole balance" test would also catch *strict check*).
 - Hypothesis runs are derandomized, so results are reproducible. Other seeds may find or miss different things.
@@ -116,4 +119,20 @@ uv run python -m proofgap.experiment   # prints the matrix, writes RESULTS.md (~
 uv run pytest -q                        # pins the matrix and the cross-checks
 ```
 
-Requires Python ≥ 3.11. Dependencies: `z3-solver`, `hypothesis`, `pytest`.
+Requires Python ≥ 3.11. Dependencies: `z3-solver`, `hypothesis`, `pytest`. Results were produced with z3-solver 5.4.1 and Hypothesis 6.170.17 on Python 3.13.14 (pinned in `uv.lock`). Newer versions may change solver counterexamples, run times or Hypothesis's search, and so some cells or witnesses in the table may change.
+
+## References
+
+These links and descriptions were checked on **23 November 2026**. Projects move, rename and change their claims, so treat this list as a snapshot and check the source before relying on it.
+
+- Bend 2: [github.com/bendlang/bend](https://github.com/bendlang/bend) · [bend-lang.com](https://bend-lang.com). Describes itself as "a fast language that blocks AI mistakes via proof". The original Bend 1 lives at [github.com/HigherOrderCO/Bend](https://github.com/HigherOrderCO/Bend).
+- Z3 theorem prover: [github.com/Z3Prover/z3](https://github.com/Z3Prover/z3) · [Z3 guide](https://microsoft.github.io/z3guide/)
+- Hypothesis (property-based testing for Python): [github.com/HypothesisWorks/hypothesis](https://github.com/HypothesisWorks/hypothesis) · [docs](https://hypothesis.readthedocs.io/)
+- uv (Python project manager used to run this lab): [github.com/astral-sh/uv](https://github.com/astral-sh/uv)
+
+## Conditions of use
+
+- Licensed under the [MIT License](LICENSE). The software is provided "as is", without warranty of any kind.
+- For learning and discussion only. The ledger, fee rule and bugs are synthetic. They do not describe any real bank, product or incident, and they are not financial, legal or compliance advice.
+- Do not treat a passing run of this lab as evidence that any real system is correct. The point of the experiment is that a proof covers only the promises you stated, about the code the checker can see.
+- Third-party names (Bend, Z3, Hypothesis, uv) belong to their owners. They are used here only to identify those projects.
