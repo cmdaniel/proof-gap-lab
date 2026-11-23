@@ -9,6 +9,68 @@ It tests two claims:
 1. **The compiler verification gap.** In proof languages such as Bend 2, the proof-checking core can be trustworthy while the compiler that turns source into an executable is not. A proof about the source is not a proof about the binary. And a proof language only covers code written in it, so existing TypeScript, Python or Rust services are outside its reach.
 2. **Verification is the top tier, not a replacement.** Formal proof gives certainty about the core promises across *every* input, which path-based tests cannot reach. But it only proves what you wrote down, about the code it can see. Conventional tests still do work that proofs cannot.
 
+## What is formal verification?
+
+**Formal verification means using mathematics, checked by a machine, to show that a program meets a precise specification for every possible input, not just the inputs someone thought to try.**
+
+A test asks: *"For this input, is the output right?"* A proof asks: *"Is there any input at all for which the output is wrong?"* If the answer is a machine-checked "no", the property holds everywhere.
+
+It always has three parts:
+
+| Part | What it is | In this lab |
+|---|---|---|
+| **Specification** | Precise statements of what must always be true | The five core promises, e.g. *the payer is never overdrawn*: `new_src ≥ 0` |
+| **Model of the code** | The program in a form a machine can reason about | The transfer written in the lab's small DSL |
+| **Checker** | A tool that either proves the specification or produces a counterexample | The Z3 SMT solver |
+
+Here is the difference in scale. The transfer takes three numbers, each ranging up to £10bn in pence: about 2 × 10³⁶ possible inputs. A thousand random tests check a thousand of them. Z3 does not enumerate inputs at all. It reasons symbolically about all of them at once, and answers in milliseconds with one of three results:
+
+- **Proved:** no input in the whole range breaks the promise.
+- **Counterexample:** a concrete input that breaks it, e.g. `src=100250399, amount=100000399` leaves the payer at −1p.
+- **Unknown:** the solver gave up within its time limit. That is not a pass.
+
+There are several families of tools. They include SMT solvers such as Z3 (used here), proof assistants such as Lean and Rocq, model checkers, and languages whose type checker is a proof checker, such as Bend 2. They all share the same promise and the same limit: **certainty about exactly what was specified, for exactly the code the checker saw**. The rest of this lab is about that limit.
+
+## Why it matters for GenAI workflows
+
+Generative AI changes the economics of writing code. A model can produce a plausible-looking function in seconds, but plausible is not correct, and the bottleneck moves from *writing* code to *trusting* it. Formal verification is one of the few ways to build that trust without a human reading every line:
+
+- **An independent judge.** A test suite written by the same model that wrote the code can share its blind spots: it tends to check what the code *does*, not what it *should* do. A proof checker does not care how the code was produced or how convincing it looks. It accepts or rejects. That is the idea behind proof-oriented languages like Bend 2, which describes itself as blocking AI mistakes via proof.
+- **Rare-path bugs are exactly what models produce.** Generated code tends to handle the common case well. Its mistakes hide in edge cases and special branches, such as the ≥ £1m path in this lab, which neither the example tests, 100,000 property tests nor 1 billion random samples found. A proof covers those paths by construction.
+- **Precise feedback for agents.** A failed proof returns a concrete counterexample, not a vague "test failed". An agent can feed `(src=100250399, amount=100000399) → overdraft` straight back into its next attempt and repair loop, until the checker accepts.
+- **A stable gate for unstable generators.** Model outputs change between runs and between model versions. The specification and the checker don't, so regenerated code is held to the same bar every time.
+- **Humans move up a level.** Reviewing five short promises is far easier than reviewing every generated line. People own the intent, and the machine checks the implementation against it.
+- **Evidence for regulated settings.** A proof plus its specification is an auditable artifact, which matters in finance, healthcare and safety.
+
+This lab's results also show where GenAI makes the gaps *more* dangerous, not less:
+
+| GenAI risk | What the lab shows |
+|---|---|
+| The model writes, or quietly weakens, the specification | *fee paid to payee* is fully proved and still wrong. If the same model writes the promises and the code, the proof can certify the wrong behaviour. **Humans must own the spec**, and example tests must capture intent. |
+| Generated code goes into mainstream languages that cannot be proved | The *legacy* services. Most generated Python, TypeScript or Rust sits outside any proof, so test it against the proved spec (conformance). |
+| Generated code goes through compilers, code generators and glue | The two *compiler* bugs pass the proof. Whatever sits between the proof and the running code needs its own tests. |
+| Fast generation tempts teams to skip slower checks | Here the proof takes about 4 ms, and all four tiers together take 0.2 s in Rust or 3.5 s in Python. Skipping any layer saves almost nothing, and each one catches bugs the others miss. |
+
+A workflow that puts these together looks like this:
+
+```
+ human: intent + core promises (the spec)
+                  │
+                  ▼
+       model generates the code  ◄──────────────┐
+                  │                              │
+                  ▼                              │
+       checker (e.g. Z3): proved? ── no ── counterexample
+                  │ yes
+                  ▼
+   conformance + property + example tests on the code that actually runs
+                  │
+                  ▼
+                ship
+```
+
+> **Note:** this lab contains no language model. It isolates the verification half of that loop, the checker, the gap and the tests around it, so each part can be measured on its own.
+
 ## The business problem
 
 Teams that handle money, safety or regulated data are starting to adopt formal verification, often alongside AI-generated code and proof-oriented languages such as Bend 2. That raises a practical question for engineering and risk leads:
